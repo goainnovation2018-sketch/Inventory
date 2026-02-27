@@ -98,6 +98,7 @@
 	  const submitBtn = document.getElementById('submitOrder');
 
 	  window.onload = async () => {
+		  const response = await fetch(API_URL + "?t=" + new Date().getTime());
 		// INITIALIZE MODAL HERE
 		userModalObj = new bootstrap.Modal(document.getElementById('userModal'));
 
@@ -264,5 +265,6 @@
 	</script>
 	</body>
 	</html>
+
 
 
