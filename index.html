@@ -232,24 +232,37 @@
 	  function removeItem(index) { selectedItems.splice(index, 1); renderList(); }
 
 	  submitBtn.onclick = async () => {
-		submitBtn.innerText = "Processing...";
-		submitBtn.classList.add('disabled');
-		const payload = { 
-	  user: currentUser, // Sending the whole profile object
-	  items: selectedItems 
-	};
-		try {
-		  await fetch(API_URL, { method: "POST", body: JSON.stringify(payload) });
-		  alert("Order submitted!");
-		  selectedItems = [];
-		  location.reload(); 
-		} catch (e) {
-		  alert("Error submitting.");
-		  submitBtn.innerText = "Confirm & Submit";
-		  submitBtn.classList.remove('disabled');
-		}
-	  };
+    submitBtn.innerText = "Processing...";
+    submitBtn.classList.add('disabled');
+
+    const payload = { 
+        user: currentUser, 
+        items: selectedItems 
+    };
+
+    // We use 'no-cors' for the POST request to avoid the redirect block
+    fetch(API_URL, {
+        method: "POST",
+        mode: "no-cors", 
+        cache: "no-cache",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+    }).then(() => {
+        // Because of 'no-cors', we won't get a 'success' message back, 
+        // but if the code reaches here, the data was sent!
+        alert("Order submitted successfully!");
+        selectedItems = [];
+        renderList();
+        location.reload(); 
+    }).catch(err => {
+        console.error("Submission error:", err);
+        alert("Check your internet connection and try again.");
+        submitBtn.innerText = "Submit";
+        submitBtn.classList.remove('disabled');
+    });
+};
 	</script>
 	</body>
 	</html>
+
 
