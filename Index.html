@@ -1,0 +1,254 @@
+	<!DOCTYPE html>
+	<html lang="en">
+	<head>
+	  <meta charset="UTF-8">
+	  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+	  <title>Stationery Store App</title>
+	  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+	  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+	  <style>
+		body { background-color: #f4f7f6; padding-bottom: 100px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+		.search-container { position: sticky; top: 0; z-index: 1000; background: #f4f7f6; padding: 15px 0; }
+		.search-results { position: absolute; width: 100%; z-index: 1001; max-height: 250px; overflow-y: auto; box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+		.item-card { border-radius: 12px; border: none; transition: transform 0.2s; margin-bottom: 12px; border-left: 6px solid #0d6efd; }
+		.qty-controls .btn { width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
+		.stock-tag { font-size: 0.75rem; padding: 2px 8px; border-radius: 10px; background: #e9ecef; }
+		.footer-bar { position: fixed; bottom: 0; left: 0; right: 0; background: white; padding: 15px; border-top: 1px solid #dee2e6; }
+		.main-content { margin-bottom: 100px; } 
+	  </style>
+	</head>
+
+	<body>
+
+	<div class="container mt-2 text-end">
+	  <small class="text-muted">Logged in as: <b id="displayUserName">...</b> 
+	  <a href="#" onclick="clearUser()" class="text-decoration-none ms-2">Change</a></small>
+	</div>
+
+	<div class="container main-content">
+	  <div class="search-container">
+		<h3 class="fw-bold text-dark">Stationery Issue</h3>
+		<div class="position-relative">
+		  <input type="text" id="itemSearch" class="form-control form-control-lg" placeholder="Search material..." autocomplete="off">
+		  <div id="suggestions" class="list-group search-results"></div>
+		</div>
+	  </div>
+
+	  <div id="selectedList" class="mt-3">
+		<div class="text-center text-muted mt-5">
+		  <p>Your list is empty.<br>Search and add items to begin.</p>
+		</div>
+	  </div>
+	</div>
+
+	<!-- <div class="footer-bar"> -->
+	  <!-- <div class="container"> -->
+		<!-- <button id="submitOrder" class="btn btn-primary btn-lg w-100 disabled shadow-sm">Confirm & Submit</button> -->
+	  <!-- </div> -->
+	<!-- </div> -->
+
+	<div class="modal fade" id="userModal" data-bs-backdrop="static" tabindex="-1">
+	  <div class="modal-dialog modal-dialog-centered">
+		<div class="modal-content border-0 shadow">
+		  <div class="modal-header bg-primary text-white">
+			<h5 class="modal-title">Registration</h5>
+		  </div>
+		  <div class="modal-body p-4">
+			<label class="form-label fw-bold">Full Name</label>
+			<input type="text" id="userNameInput" class="form-control mb-3" placeholder="Enter Name">
+			
+			<label class="form-label fw-bold">Department</label>
+			<input type="text" id="userDeptInput" class="form-control mb-3" placeholder="e.g. BA, TCC, Production">
+			
+			<label class="form-label fw-bold">Role</label>
+			<select id="userRoleInput" class="form-select mb-3">
+			  <option value="Employee">Employee</option>
+			  <option value="Apprentice">Apprentice</option>
+			  <option value="Intern">Intern</option>
+			  <option value="Thangham">Thangham</option>
+			  <option value="Sodexo">Sodexo</option>
+			</select>
+		  </div>
+		  <div class="modal-footer border-0">
+			<button type="button" class="btn btn-primary btn-lg w-100" onclick="saveUser()">Save & Start</button>
+		  </div>
+		</div>
+	  </div>
+	</div>
+
+	<div class="footer-bar">
+	  <div class="container d-flex gap-2">
+		<button id="clearBtn" class="btn btn-outline-danger btn-lg w-50" onclick="clearList()">Clear All</button>
+		<button id="submitOrder" class="btn btn-primary btn-lg w-50 disabled shadow-sm">Submit</button>
+	  </div>
+	</div>
+
+	<script>
+	  const API_URL = "https://script.google.com/macros/s/AKfycbxJlN_Flw7mCPySJwYCCPIsUqtacfCEfRJ8MIGqG8UoOfRwY1PvtICgKOIhZ-xvvh4Y/exec";
+
+	  //let currentUser = localStorage.getItem('stationery_user');
+	  let currentUser = JSON.parse(localStorage.getItem('stationery_user_profile'));
+	  let userModalObj; // We will initialize this inside window.onload
+	  let availableItems = []; 
+	  let selectedItems = [];
+
+	  const searchInput = document.getElementById('itemSearch');
+	  const suggestionsBox = document.getElementById('suggestions');
+	  const listDiv = document.getElementById('selectedList');
+	  const submitBtn = document.getElementById('submitOrder');
+
+	  window.onload = async () => {
+		// INITIALIZE MODAL HERE
+		userModalObj = new bootstrap.Modal(document.getElementById('userModal'));
+
+		if (!currentUser) {
+		  userModalObj.show();
+		} else {
+		  //document.getElementById('displayUserName').innerText = currentUser;
+		  document.getElementById('displayUserName').innerText = `${currentUser.name} (${currentUser.role})`;
+		}
+
+		try {
+		  const response = await fetch(API_URL);
+		  availableItems = await response.json();
+		} catch (e) {
+		  console.error("Error loading items:", e);
+		  availableItems = [
+			{name: "Note Book A4", stock: 10},
+			{name: "Note Book A3", stock: 5},
+			{name: "Pen Blue", stock: 100}
+		  ];
+		}
+	  };
+
+	  function saveUser() {
+	  const name = document.getElementById('userNameInput').value.trim();
+	  const dept = document.getElementById('userDeptInput').value.trim();
+	  const role = document.getElementById('userRoleInput').value;
+
+	  if (name && dept) {
+		const profile = { name, dept, role };
+		localStorage.setItem('stationery_user_profile', JSON.stringify(profile));
+		currentUser = profile;
+		document.getElementById('displayUserName').innerText = `${name} (${role})`;
+		userModalObj.hide();
+	  } else {
+		alert("Please fill in both Name and Department");
+	  }
+	}
+
+	  function clearUser() {
+	  localStorage.removeItem('stationery_user_profile');
+	  location.reload();
+	}
+
+	  // --- EXISTING LOGIC BELOW ---
+
+	  searchInput.addEventListener('input', () => {
+		const val = searchInput.value.toLowerCase();
+		suggestionsBox.innerHTML = '';
+		if (!val) return;
+		const filtered = availableItems.filter(i => i.name.toLowerCase().includes(val));
+		filtered.forEach(item => {
+		  <!-- const button = document.createElement('button'); -->
+		  <!-- button.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center'; -->
+		  <!-- button.innerHTML = `<span>${item.name}</span> <span class="stock-tag">In Stock: ${item.stock}</span>`; -->
+		  <!-- button.innerHTML = `<span>${item.name}</span> <span class="stock-tag"></span>`; -->
+		  <!-- button.onclick = () => addItem(item); -->
+		  <!-- suggestionsBox.appendChild(button); -->
+		  const button = document.createElement('button');
+		  button.className = 'list-group-item list-group-item-action';
+		  button.innerText = item.name; // Only showing the name now
+		  button.onclick = () => addItem(item);
+		  suggestionsBox.appendChild(button);
+		  
+		});
+	  });
+
+	  function addItem(item) {
+		// Hidden internal stock check
+		if (item.stock <= 0) {
+		  alert("This item is currently unavailable.");
+		  return;
+		}
+
+		// Restriction: Max 5 items
+		if (selectedItems.length >= 5) {
+		  alert("You can only request up to 5 different items at once.");
+		  return;
+		}
+
+		const exists = selectedItems.find(i => i.name === item.name);
+		if (!exists) {
+		  selectedItems.push({ name: item.name, qty: 1, max: item.stock });
+		  renderList();
+		}
+		
+		searchInput.value = '';
+		suggestionsBox.innerHTML = '';
+	  }
+
+	  // 4. Update UI (UPDATED: Stock display removed from cards)
+	  function renderList() {
+		if (selectedItems.length === 0) {
+		  listDiv.innerHTML = '<div class="text-center text-muted mt-5"><p>Your list is empty.</p></div>';
+		  submitBtn.classList.add('disabled');
+		  return;
+		}
+
+		submitBtn.classList.remove('disabled');
+		listDiv.innerHTML = selectedItems.map((item, index) => `
+		  <div class="card item-card shadow-sm p-3">
+			<div class="d-flex justify-content-between align-items-center">
+			  <div>
+				<h6 class="mb-0 fw-bold">${item.name}</h6>
+				</div>
+			  <div class="d-flex align-items-center qty-controls">
+				<button class="btn btn-outline-secondary btn-sm" onclick="updateQty(${index}, -1)">-</button>
+				<span class="mx-3 fw-bold">${item.qty}</span>
+				<button class="btn btn-outline-secondary btn-sm" onclick="updateQty(${index}, 1)">+</button>
+				<button class="btn btn-link text-danger ms-2" onclick="removeItem(${index})">✕</button>
+			  </div>
+			</div>
+		  </div>
+		`).join('');
+	  }
+	  
+	  // ADDED: Clear List Function
+	  function clearList() {
+		if (selectedItems.length > 0 && confirm("Are you sure you want to clear your list?")) {
+		  selectedItems = [];
+		  renderList();
+		}
+	  }
+	  
+
+	  function updateQty(index, change) {
+		const item = selectedItems[index];
+		const newQty = item.qty + change;
+		if (newQty > 0 && newQty <= item.max) { item.qty = newQty; renderList(); }
+	  }
+
+	  function removeItem(index) { selectedItems.splice(index, 1); renderList(); }
+
+	  submitBtn.onclick = async () => {
+		submitBtn.innerText = "Processing...";
+		submitBtn.classList.add('disabled');
+		const payload = { 
+	  user: currentUser, // Sending the whole profile object
+	  items: selectedItems 
+	};
+		try {
+		  await fetch(API_URL, { method: "POST", body: JSON.stringify(payload) });
+		  alert("Order submitted!");
+		  selectedItems = [];
+		  location.reload(); 
+		} catch (e) {
+		  alert("Error submitting.");
+		  submitBtn.innerText = "Confirm & Submit";
+		  submitBtn.classList.remove('disabled');
+		}
+	  };
+	</script>
+	</body>
+	</html>
